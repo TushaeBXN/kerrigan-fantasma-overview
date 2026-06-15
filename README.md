@@ -2,6 +2,8 @@
 
 > **A custom-built AI security research system designed for autonomous vulnerability discovery, exploit harness generation, and low-level system analysis — built from scratch, not a wrapper.**
 
+📝 **Blog post:** [Building a Recurrent-Depth Transformer for Security Research on a 2013 MacBook](https://medium.com/@brian.thomas.t/building-a-recurrent-depth-transformer-for-security-research-on-a-2013-macbook-1b534101df31) — full writeup on Medium.
+
 ---
 
 ## ⚠️ Responsible Disclosure Notice
