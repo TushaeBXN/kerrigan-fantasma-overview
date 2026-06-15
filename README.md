@@ -10,6 +10,22 @@ This repository is a **public overview only**. The core implementation, training
 
 ---
 
+## Proof of Concept
+
+The autonomous fuzzing loop is functional today. Real results from 4 sessions on an HTTP request parser target:
+
+| Metric | Result |
+|--------|--------|
+| Sessions run | 4 |
+| Total inputs generated | 380 |
+| Unique crash signatures | 2 |
+| Crash types | SIGILL (CWE-121 stack overflow), SIGABRT (CWE-122 heap overflow) |
+| CVE parallels | Heartbleed (OOB read pattern), Kaminsky (boundary condition) |
+
+These were found on a 2013 MacBook Pro with no GPU — the C mutation engine runs at 2.95M mutations/sec via a compiled native engine, and a compilation cache drops repeated harness builds to 0ms.
+
+---
+
 ## What is Kerrigan-Fantasma?
 
 Kerrigan-Fantasma is an AI security research system built around a custom **Recurrent-Depth Transformer (RDT)** architecture — designed from first principles for low-level vulnerability research. It operates as an autonomous loop: given a target surface, it reasons about the attack space, generates C exploit harnesses, executes them in isolation, analyzes crashes, and refines its hypotheses.
@@ -20,7 +36,7 @@ This is not a fine-tuned general-purpose LLM applied to security. The architectu
 
 ## Architecture Overview
 
-\`\`\`
+```
 ┌─────────────────────────────────────────────────────┐
 │                  Kerrigan-Fantasma                  │
 │              Recurrent-Depth Transformer            │
@@ -43,22 +59,23 @@ This is not a fine-tuned general-purpose LLM applied to security. The architectu
 │  Feedback       │  Crash → learning loop            │
 │  Loop           │  CVE pattern reinforcement         │
 └─────────────────────────────────────────────────────┘
-\`\`\`
+```
 
 ---
 
 ## Core Capabilities
 
 ### Autonomous Fuzzing Loop
-The system writes its own C exploit harnesses targeting a supplied attack surface, executes them inside an isolated sandbox, captures and classifies crashes, and feeds results back into the reasoning layer. No human-in-the-loop required between iteration cycles.
+The system writes its own C exploit harnesses targeting a supplied attack surface, executes them inside an isolated sandbox, captures and classifies crashes, and feeds results back into the reasoning layer. No human-in-the-loop required between iteration cycles. The C mutation engine generates 2.95M mutations/sec; AFL++ can be wired in as a coverage-guided backend for real binaries.
 
 ### Low-Level Domain Coverage
 Trained on:
 - Linux kernel source (syscall interfaces, memory subsystems, scheduler)
-- UEFI firmware specifications
-- CPU architecture documentation (x86_64, ARM64)
-- Historical CVE corpus with patch diffs
-- 12 programming and assembly languages
+- UEFI/EDK2 firmware source (DXE core, SMM core, SecurityPkg)
+- CPU architecture documentation (x86_64, ARM64, RISC-V ISA)
+- NVD CVE corpus (500+ entries across memory corruption, hardware, firmware)
+- Project Zero research and arxiv cs.CR papers
+- 12 programming and assembly languages (C, C++, Rust, Assembly, Python, Go, JS, Java, Verilog, VHDL, SystemVerilog, Bash)
 
 ### Defense-in-Depth Sandbox
 Before any generated harness executes, it passes through a 7-layer validation pipeline:
@@ -73,17 +90,25 @@ Before any generated harness executes, it passes through a 7-layer validation pi
 ### Exploit Harness Generation
 Given a target (kernel module, firmware image, binary), the model decomposes the attack surface, selects candidate vulnerability classes (buffer overflows, use-after-free, race conditions, type confusion, etc.), and generates targeted C harnesses for each hypothesis.
 
+### OSINT Suite
+9 integrated modules: email intel, domain intel, social media, phone, website fingerprinting, EXIF extraction, image search, dark web lookups, and full-target aggregation. All output is gated through the Overmind safety verifier and logged to persistent memory.
+
+### Persistent Memory
+ChromaDB vector store persists findings across sessions. Every crash, OSINT result, and reasoning chain is stored and retrieved on future runs — the system gets more effective the more it is used.
+
 ---
 
-## Training Approach
+## Training Status
 
 | Phase | Focus | Status |
 |-------|-------|--------|
-| Pre-training | Low-level domain corpus ingestion | ✅ Complete |
-| Identity hardening | System identity & behavioral grounding | ✅ Complete |
-| Instruction tuning | Security task alignment | ✅ Complete |
-| Exploit reasoning | CVE-to-harness mapping | 🔄 In Progress |
-| Adversarial fine-tuning | Sandbox evasion robustness | 🔲 Planned |
+| Smoke (100 steps) | Architecture verification | ✅ Complete — loss 4.62 → 2.14 |
+| Proof (1,000 steps) | Security corpus, loss validation | ✅ Complete |
+| SFT (50,000 steps) | Combined code + hardware + security corpus | 🔲 Pending GPU (RunPod) |
+| Hardware (20,000 steps) | Kernel + firmware + CPU specs fine-tune | 🔲 Pending GPU |
+| Instruct (10,000 steps) | Q&A pairs: Spectre, ROP, UEFI, TrustZone | 🔲 Pending GPU |
+
+Current inference backbone: **Ollama + deepseek-coder:6.7b**. The fuzzer, compiler cache, mutation engine, and safety systems are fully functional with this backbone today. The native KerriganCore model runs and needs GPU time to replace it.
 
 ---
 
@@ -119,23 +144,26 @@ It is **not** designed for, and the author does not endorse use in:
 | Component | Detail |
 |-----------|--------|
 | Model architecture | Custom Recurrent-Depth Transformer (RDT) |
-| Framework | PyTorch |
+| Framework | PyTorch 2.2.2 |
 | Harness language | C (primary), Python (orchestration) |
+| Mutation engine | Native C via ctypes — 2.95M mutations/sec |
+| Compile cache | SHA-256 content hash, 0ms on hit |
 | Execution environment | Docker (multi-layer isolated) |
+| Memory backend | ChromaDB + MySQL (KerriganDB) |
 | CI | GitHub Actions |
-| Primary domains | Linux kernel, UEFI, x86_64 / ARM64, CVE corpus |
+| Primary domains | Linux kernel, UEFI, x86_64 / ARM64 / RISC-V, CVE corpus |
 
 ---
 
 ## Status
 
-Active research project. Core autonomous loop is functional. Exploit reasoning fine-tuning is ongoing. The system currently operates on isolated lab infrastructure and is not deployed externally.
+Active research project. The autonomous fuzzing loop, mutation engine, compilation cache, OSINT suite, and safety verifier are all functional. Native KerriganCore architecture is built and smoke-trained — full training is pending GPU time on RunPod. The system currently operates on isolated lab infrastructure and is not deployed externally.
 
 ---
 
 ## Researcher
 
-**Brian Thomas (TushaeBXN)**
+**Brian Thomas (TushaeBXN)**  
 Cloud Security Engineer · AI Systems Builder · Charlotte, NC
 
 [GitHub](https://github.com/TushaeBXN) · [LinkedIn](https://www.linkedin.com/in/brian-t-24748719/) · [ORCID](https://orcid.org/0009-0002-9633-3469)
