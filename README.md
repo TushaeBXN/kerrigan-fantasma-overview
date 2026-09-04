@@ -41,7 +41,7 @@ Kerrigan-Fantasma is a security research framework built around a custom **Recur
 └──────────────────┴──────────────────────────────────────────┘
 ```
 
-**Specs:** 742M parameters — hidden_size=1024, 8 MoE experts, 8 recurrent loops, 4 prelude + 2 coda layers, CharTokenizer.
+**Specs:** **948M parameters** (confirmed from checkpoint) — hidden_size=1024, 8 MoE experts, 8 recurrent loops, 4 prelude + 2 coda layers, BPETokenizer (tiktoken cl100k_base, 100,277 vocab).
 
 **Why recurrent depth:** The same weights are reused N times before producing output. This means the model can allocate more compute to hard reasoning problems (hardware-software boundary questions, exploit chain analysis) without growing parameter count. A standard transformer of equivalent reasoning depth costs 3–4× more to run. At 30B parameters with 8 loops, effective depth exceeds a naive 30B static transformer on hard inputs.
 
@@ -57,14 +57,16 @@ Kerrigan-Fantasma is a security research framework built around a custom **Recur
 
 All 5 training tiers completed on Vast.ai RTX 5090. Checkpoints stored at `TushaeBXN/kerrigan-fantasma` on HuggingFace (10.1 GB).
 
-| Tier | Steps | Best Loss | Focus |
-|------|-------|-----------|-------|
-| Smoke | 100 | 4.62 → 2.14 | Architecture verification |
-| SFT | 50,000 | 0.2481 | 234 security books, 20,468 Q&A pairs |
-| Instruct | 10,000 | 0.8649 | Q&A: Spectre, ROP, UEFI, TrustZone |
-| Adversarial hardening | 15,000 | 0.2007 | Attack/counter pairs, jailbreak hardening |
-| DPO alignment | — | — | Direct Preference Optimization |
-| Final combined | 20,000 | 0.7769 | Hardware + instruct + adversarial combined |
+| Tier | Steps | Loss | Status |
+|------|-------|------|--------|
+| Smoke | 100 | 4.62 → 2.14 | ✅ Complete |
+| SFT | 50,000 | 0.4986 | ✅ Complete |
+| Adversarial hardening | 15,000 | 0.7438 | ✅ **Best checkpoint — inference base** |
+| Instruct | 10,000 | 5.3235 | ⚠️ Bad run — 16 pairs, catastrophic forgetting; redoing |
+| DPO | 500 | — | ⚠️ Cut short — no real data; redoing |
+| Final combined | 20,000 | 4.3690 | ⚠️ Bad run — skipped in v2 |
+| Instruct v2 | 2,000 | — | 🔲 Pending — 108 quality-filtered pairs |
+| DPO v2 | 1,000 | — | 🔲 Pending — 75 preference pairs |
 
 **Training data:** Linux kernel internals, UEFI/firmware specs, CPU architecture docs (x86_64, ARM64, RISC-V), NVD CVE corpus, 18 APT chain analyses (CISA AA, Mandiant, Dragos), OPSEC/anonymity guides, Borges PDFs (60 Q&A + 2.86MB pretraining text), Hitchhiker's Guide (380 Q&A + 11.9MB pretraining text), 54-tool AI security ecosystem.
 
